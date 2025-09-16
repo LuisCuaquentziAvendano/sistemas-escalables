@@ -7,9 +7,13 @@ resource "aws_launch_template" "nodejs" {
   user_data = base64encode(<<-EOF
     #!/bin/bash
     cd /home/ec2-user/app
-    npm start
+    node index.js
   EOF
   )
+
+  iam_instance_profile {
+    name = "LabInstanceProfile"
+  }
 }
 
 resource "aws_autoscaling_group" "nodejs_asg" {
@@ -17,11 +21,18 @@ resource "aws_autoscaling_group" "nodejs_asg" {
   max_size            = 4
   min_size            = 1
   vpc_zone_identifier = [aws_subnet.public_a.id, aws_subnet.public_b.id]
-  target_group_arns = [aws_lb_target_group.nodejs_tg.arn]
+  target_group_arns   = [aws_lb_target_group.nodejs_tg.arn]
+  depends_on          = [aws_secretsmanager_secret_version.db_secret_value]
 
   launch_template {
     id      = aws_launch_template.nodejs.id
     version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "nodejs-app"
+    propagate_at_launch = true
   }
 }
 
