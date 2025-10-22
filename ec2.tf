@@ -1,7 +1,7 @@
 resource "aws_launch_template" "nodejs" {
   name_prefix            = "nodejs-app-"
   image_id               = var.ami_id
-  instance_type          = "t3.micro"
+  instance_type          = "t2.micro"
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
 
   user_data = base64encode(<<-EOF
@@ -17,12 +17,13 @@ resource "aws_launch_template" "nodejs" {
 }
 
 resource "aws_autoscaling_group" "nodejs_asg" {
-  desired_capacity    = 2
-  max_size            = 4
-  min_size            = 1
-  vpc_zone_identifier = [aws_subnet.public_a.id, aws_subnet.public_b.id]
-  target_group_arns   = [aws_lb_target_group.nodejs_tg.arn]
-  depends_on          = [aws_secretsmanager_secret_version.db_secret_value]
+  min_size                = 1
+  max_size                = 4
+  vpc_zone_identifier     = [for s in values(aws_subnet.private) : s.id]
+  target_group_arns       = [aws_lb_target_group.nodejs_tg.arn]
+  depends_on              = [aws_secretsmanager_secret_version.db_secret_value]
+  default_cooldown        = 60
+  default_instance_warmup = 60
 
   launch_template {
     id      = aws_launch_template.nodejs.id
@@ -36,10 +37,24 @@ resource "aws_autoscaling_group" "nodejs_asg" {
   }
 }
 
+resource "aws_autoscaling_policy" "cpu_policy" {
+  name                      = "cpu-target-policy"
+  autoscaling_group_name    = aws_autoscaling_group.nodejs_asg.name
+  policy_type               = "TargetTrackingScaling"
+  estimated_instance_warmup = 60
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 50.0
+  }
+}
+
 resource "aws_lb" "nodejs_alb" {
   name               = "nodejs-alb"
   load_balancer_type = "application"
-  subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+  subnets            = [for s in values(aws_subnet.public) : s.id]
   security_groups    = [aws_security_group.alb_sg.id]
 }
 
