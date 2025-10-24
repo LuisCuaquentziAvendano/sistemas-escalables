@@ -10,7 +10,7 @@ resource "aws_db_subnet_group" "rds_private_subnets" {
 resource "aws_rds_cluster" "mysql_cluster" {
   cluster_identifier     = "nodejs-mysql-cluster"
   engine                 = "aurora-mysql"
-  engine_version         = var.db_engine
+  engine_version         = "8.0.mysql_aurora.3.10.1"
   master_username        = var.db_username
   master_password        = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.rds_private_subnets.name
