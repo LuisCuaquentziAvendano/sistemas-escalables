@@ -3,6 +3,7 @@ resource "aws_launch_template" "nodejs" {
   image_id               = var.ami_id
   instance_type          = "t2.micro"
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+  depends_on             = [aws_secretsmanager_secret_version.db_secret_value]
 
   user_data = base64encode(<<-EOF
     #!/bin/bash
